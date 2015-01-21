@@ -1,0 +1,61 @@
+---
+title: "AML - project"
+author: "Ustinov Dmitry"
+date: "Sunday, January 18, 2015"
+output: html_document
+---
+Loading required machine learning packages
+```{r, echo=FALSE}
+require(caret)
+require(e1071)
+set.seed(1984)
+```
+
+Loking at the data for the first time we see that there is too many variables that have 90% of values N/A or blank (summary of 160 variables is not included here to keep report brief).
+These values  are not likely to add prediction quality but may limit opportunity to use some algorithms (like random forests or decision trees). And they will significantly increase demand for computational resources of the computer. Therefore we'll cut these variables off, test a couple of models, and if these models aren't good enough, we'll try to accomodate these variables.
+Another important thing is to get rid of "experiment number" variable. As all cases are sorted from A to E it will force our algorithm to take this variable as key input.
+```{r}
+pml.training <- read.csv("~/pml-training.csv",na.string = c("","NA"))
+data2<-pml.training[colSums(is.na(pml.training)) < 500]
+data2<-data2[,2:60]
+```
+
+We split data into two sets - training and testing (to estimate out of sample accuracy)
+```{r}
+inTrain = createDataPartition(data2$classe, p = 0.8)[[1]]
+training = data2[ inTrain,]
+testing = data2[-inTrain,]
+```
+
+At the very beggining were are going to try "fast and dirty" linear discriminant analysis (rf takes too much of laptop computational power)
+
+```{r}
+fit2<-train(classe~.,
+            training,
+            method="lda")
+```
+After model is compiled we estimate error on the testing set
+
+```{r}
+pred<-predict(fit2,newdata=testing)
+confusionMatrix(pred,testing$classe)$overall
+```
+
+Working not so good.Accuracy of 86% is good, but not good enough
+Therefore we are going to try the best "black box" prediction - random forest, to find out what prediction quality we can get on these data.
+
+
+```{r}
+fit2<-train(classe~.,
+            training,
+            method="rf")
+
+```
+After model is compiled we estimate error on the testing set
+
+```{r}
+pred<-predict(fit2,newdata=testing)
+confusionMatrix(pred,testing$classe)$overall
+```
+This one looks much better. we can assume out of samle error to be not higher than (1-AccuracyLower)= 0,1% which is a good enough result.
+So overall conclusion will be that random forest works pretty well here (although we can't interpret how prediction here works,it's not the aim of the project)
